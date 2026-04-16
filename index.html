@@ -3,911 +3,520 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>集互通 - 品牌后台系统设计</title>
+    <title>集互通 - B端全链路体验设计与底层逻辑推导</title>
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#fff3ec', 100: '#ffe4d3', 200: '#ffc6a5', 300: '#ffa16d', 400: '#ff7332', 500: '#ff540a', 600: '#f03e00', 700: '#c72e02', 800: '#9e250a', 900: '#7e220c' },
+                        primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 900: '#1e3a8a' }, // 辅助蓝，用于对比
+                        surface: '#F8FAFC',
+                        dark: '#0F172A',
+                        darker: '#020617'
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+                        'glow': '0 0 20px rgba(255, 84, 10, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        :root {
-            --primary-orange: #FF9500;
-            --soft-orange: #FFF7ED;
-            --subtle-gradient: linear-gradient(135deg, #FFF9F2 0%, #F5F7FA 100%);
-            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-        }
-
-        body {
-            background: var(--subtle-gradient);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            color: #334155;
-            scroll-behavior: smooth;
-        }
-
-        .glass-card {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            border-radius: 16px;
-            box-shadow: var(--card-shadow);
-        }
-
-        .sidebar-active {
-            background: linear-gradient(90deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0) 100%);
-            border-right: 3px solid var(--primary-orange);
-            color: var(--primary-orange);
-            font-weight: 600;
-        }
-
-        .gradient-text {
-            background: linear-gradient(90deg, #FF9500, #FFB347);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .orange-btn {
-            background: linear-gradient(135deg, #FFB347 0%, #FF9500 100%);
-            box-shadow: 0 4px 12px rgba(255, 149, 0, 0.2);
-            transition: all 0.3s ease;
-        }
-
-        .orange-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 15px rgba(255, 149, 0, 0.3);
-        }
-
-        .section-divider {
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #94a3b8;
-            font-size: 0.875rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-        }
-
-        /* 隐藏滚动条但保持功能 */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-
-        /* 模拟图表柱子动画效果 */
-        .bar-chart-item {
-            position: relative;
-            border-radius: 4px 4px 0 0;
-            overflow: hidden;
-            background: #f1f5f9;
-        }
-        .bar-chart-fill {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            background: linear-gradient(180deg, #FFB347 0%, #FF9500 100%);
-            border-radius: 4px 4px 0 0;
-            opacity: 0.85;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #F8FAFC; color: #334155; }
         
-        .form-input {
-            width: 100%;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            font-size: 0.875rem;
-            outline: none;
-            transition: all 0.2s;
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* 动画基础 */
+        .fade-in-up { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .fade-in-up.visible { opacity: 1; transform: translateY(0); }
+        .delay-100 { transition-delay: 0.1s; }
+        .delay-200 { transition-delay: 0.2s; }
+        .delay-300 { transition-delay: 0.3s; }
+
+        /* 高级文字高亮 */
+        .highlight-b { position: relative; z-index: 1; font-weight: 700; color: #0F172A;}
+        .highlight-b::after { content: ''; position: absolute; left: 0; bottom: 0; width: 100%; height: 40%; background-color: rgba(255, 84, 10, 0.2); z-index: -1; transition: height 0.3s; }
+        .highlight-b:hover::after { height: 100%; }
+
+        /* --- 双钻模型专属 CSS --- */
+        .diamond-container { display: flex; align-items: center; justify-content: center; position: relative; width: 100%; height: 300px; }
+        .diamond-line { position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, transparent, #cbd5e1 20%, #cbd5e1 80%, transparent); z-index: 0; }
+        .diamond { 
+            width: 240px; height: 240px; 
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.4));
+            border: 1px solid rgba(255,84,10,0.1);
+            transform: rotate(45deg); 
+            display: flex; align-items: center; justify-content: center;
+            position: relative; z-index: 1;
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.5), 0 10px 30px rgba(0,0,0,0.02);
+            backdrop-filter: blur(10px);
         }
-        .form-input:focus {
-            border-color: #FFB347;
-            box-shadow: 0 0 0 2px rgba(255, 149, 0, 0.1);
+        .diamond-center-node {
+            width: 120px; height: 120px;
+            background: linear-gradient(135deg, #ff7332, #ff540a);
+            transform: rotate(45deg);
+            display: flex; align-items: center; justify-content: center;
+            position: absolute; z-index: 10;
+            box-shadow: 0 10px 25px rgba(255,84,10,0.4);
+            left: 50%; top: 50%; margin-left: -60px; margin-top: -60px;
         }
+        .diamond-content { transform: rotate(-45deg); text-align: center; }
+        
+        .connector-dot { width: 12px; height: 12px; background: #3b82f6; transform: rotate(45deg); position: absolute; z-index: 5; }
+        
+        /* 深度分析卡片悬浮效果 */
+        .insight-card { transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .insight-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.08); border-color: #ff540a; }
     </style>
 </head>
-<body class="p-8 space-y-8">
+<body>
+    <div id="root"></div>
 
-    <!-- 第一部分：首页看板 -->
-    <section class="max-w-7xl mx-auto">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-xl font-bold flex items-center gap-3">
-                <span class="w-1.5 h-6 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full shadow-sm"></span>
-                工作台概览
-            </h2>
-            <div class="flex gap-3">
-                <div class="bg-white/80 backdrop-blur px-4 py-2 rounded-lg shadow-sm border border-white text-sm text-slate-500 flex items-center gap-2">
-                    <i class="fa-regular fa-calendar"></i> 2024年10月11日
-                </div>
-                <button class="orange-btn text-white px-5 py-2 rounded-lg text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-layer-group"></i> 自定义布局
-                </button>
-            </div>
-        </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-        <!-- 顶栏核心指标 -->
-        <div class="grid grid-cols-5 gap-4 mb-6">
-            <div class="glass-card p-5 relative overflow-hidden group">
-                <div class="absolute right-[-10px] top-[-10px] text-5xl text-slate-50 opacity-50 group-hover:scale-110 transition-transform"><i class="fa-solid fa-file-invoice"></i></div>
-                <div class="text-slate-400 text-xs mb-2 relative z-10">今日订单总数 <i class="fa-regular fa-circle-question ml-1 cursor-pointer hover:text-orange-400"></i></div>
-                <div class="text-3xl font-bold text-slate-800 relative z-10">1,056</div>
-                <div class="text-xs mt-3 flex items-center gap-1 text-green-500 relative z-10 bg-green-50 w-max px-2 py-0.5 rounded">
-                    <i class="fa-solid fa-arrow-trend-up"></i> <span>较昨日 +15.6%</span>
-                </div>
-            </div>
-            <div class="glass-card p-5 border-t-4 border-orange-400 relative overflow-hidden group">
-                <div class="absolute right-[-10px] top-[-10px] text-5xl text-orange-50 opacity-50 group-hover:scale-110 transition-transform"><i class="fa-solid fa-sack-dollar"></i></div>
-                <div class="text-slate-400 text-xs mb-2 relative z-10">今日销售总额 (元) <i class="fa-regular fa-circle-question ml-1"></i></div>
-                <div class="text-3xl font-bold text-orange-500 relative z-10">125,056<span class="text-lg">.00</span></div>
-                <div class="text-xs mt-3 flex items-center gap-1 text-green-500 relative z-10 bg-green-50 w-max px-2 py-0.5 rounded">
-                    <i class="fa-solid fa-arrow-trend-up"></i> <span>较昨日 +2,012</span>
-                </div>
-            </div>
-            <div class="glass-card p-5 relative overflow-hidden group">
-                <div class="absolute right-[-10px] top-[-10px] text-5xl text-slate-50 opacity-50 group-hover:scale-110 transition-transform"><i class="fa-solid fa-eye"></i></div>
-                <div class="text-slate-400 text-xs mb-2 relative z-10">店铺浏览量 <i class="fa-regular fa-circle-question ml-1"></i></div>
-                <div class="text-3xl font-bold text-slate-800 relative z-10">3,056</div>
-                <div class="text-xs mt-3 flex items-center gap-1 text-red-500 relative z-10 bg-red-50 w-max px-2 py-0.5 rounded">
-                    <i class="fa-solid fa-arrow-trend-down"></i> <span>较昨日 -11.2%</span>
-                </div>
-            </div>
-            <div class="glass-card p-5 relative overflow-hidden group">
-                <div class="absolute right-[-10px] top-[-10px] text-5xl text-slate-50 opacity-50 group-hover:scale-110 transition-transform"><i class="fa-solid fa-user-plus"></i></div>
-                <div class="text-slate-400 text-xs mb-2 relative z-10">店铺新增用户 <i class="fa-regular fa-circle-question ml-1"></i></div>
-                <div class="text-3xl font-bold text-slate-800 relative z-10">1,054</div>
-                <div class="text-xs mt-3 flex items-center gap-1 text-red-500 relative z-10 bg-red-50 w-max px-2 py-0.5 rounded">
-                    <i class="fa-solid fa-arrow-trend-down"></i> <span>较昨日 -5.4%</span>
-                </div>
-            </div>
-            <div class="glass-card p-5 relative overflow-hidden group">
-                <div class="absolute right-[-10px] top-[-10px] text-5xl text-slate-50 opacity-50 group-hover:scale-110 transition-transform"><i class="fa-solid fa-rotate-left"></i></div>
-                <div class="text-slate-400 text-xs mb-2 relative z-10">今日退款订单 <i class="fa-regular fa-circle-question ml-1"></i></div>
-                <div class="text-3xl font-bold text-slate-800 relative z-10">17</div>
-                <div class="text-xs mt-3 flex items-center gap-1 text-slate-500 relative z-10 bg-slate-100 w-max px-2 py-0.5 rounded">
-                    <i class="fa-solid fa-minus"></i> <span>较昨日持平</span>
-                </div>
-            </div>
-        </div>
+        // 滚动监听 Hook
+        const useScrollAnimation = () => {
+            useEffect(() => {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('visible');
+                        }
+                    });
+                }, { threshold: 0.15 });
 
-        <div class="grid grid-cols-12 gap-6">
-            <!-- 左侧内容 -->
-            <div class="col-span-9 space-y-6">
-                <!-- 待办事项 -->
-                <div class="glass-card overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white/50">
-                        <span class="font-bold text-slate-700 flex items-center gap-2">
-                            <i class="fa-solid fa-clipboard-list text-orange-500"></i> 待办事项
-                        </span>
-                        <span class="text-xs text-orange-500 cursor-pointer hover:underline">全部处理 <i class="fa-solid fa-chevron-right text-[10px]"></i></span>
-                    </div>
-                    <div class="grid grid-cols-6 gap-0 p-2 text-center divide-x divide-slate-100 bg-white/30">
-                        <div class="py-6 hover:bg-white/60 transition-colors cursor-pointer rounded-lg">
-                            <div class="text-3xl font-bold mb-1 text-slate-800">23</div>
-                            <div class="text-xs text-slate-500 flex items-center justify-center gap-1">待发货订单 <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span></div>
-                        </div>
-                        <div class="py-6 hover:bg-white/60 transition-colors cursor-pointer rounded-lg">
-                            <div class="text-3xl font-bold mb-1 text-slate-800">3</div>
-                            <div class="text-xs text-slate-500">待付款订单</div>
-                        </div>
-                        <div class="py-6 hover:bg-white/60 transition-colors cursor-pointer rounded-lg">
-                            <div class="text-3xl font-bold mb-1 text-slate-800">19</div>
-                            <div class="text-xs text-slate-500">待评价订单</div>
-                        </div>
-                        <div class="py-6 hover:bg-white/60 transition-colors cursor-pointer rounded-lg">
-                            <div class="text-3xl font-bold mb-1 text-slate-800">1</div>
-                            <div class="text-xs text-slate-500 flex items-center justify-center gap-1">待处理投诉 <span class="w-1.5 h-1.5 bg-orange-500 rounded-full"></span></div>
-                        </div>
-                        <div class="py-6 hover:bg-white/60 transition-colors cursor-pointer rounded-lg">
-                            <div class="text-3xl font-bold mb-1 text-slate-800">40</div>
-                            <div class="text-xs text-slate-500">用户反馈</div>
-                        </div>
-                        <div class="py-6 hover:bg-white/60 transition-colors cursor-pointer rounded-lg">
-                            <div class="text-3xl font-bold mb-1 text-slate-300">0</div>
-                            <div class="text-xs text-slate-400">平台介入</div>
-                        </div>
-                    </div>
+                document.querySelectorAll('.fade-in-up').forEach((el) => observer.observe(el));
+                return () => observer.disconnect();
+            }, []);
+        };
+
+        // 导航进度条
+        const ProgressNav = () => {
+            const [progress, setProgress] = useState(0);
+            useEffect(() => {
+                const handleScroll = () => {
+                    const scrollPx = document.documentElement.scrollTop;
+                    const winHeightPx = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    setProgress(`${scrollPx / winHeightPx * 100}%`);
+                }
+                window.addEventListener('scroll', handleScroll);
+                return () => window.removeEventListener('scroll', handleScroll);
+            }, []);
+            return (
+                <div className="fixed top-0 left-0 w-full h-1 z-50 bg-gray-100">
+                    <div className="h-full bg-brand-500 transition-all duration-150 ease-out" style={{ width: progress }}></div>
                 </div>
+            );
+        };
 
-                <!-- 销售趋势与常用入口合并区域 -->
-                <div class="grid grid-cols-2 gap-6">
-                    <!-- 销售趋势 (新增图表占位) -->
-                    <div class="glass-card p-6 flex flex-col">
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="font-bold text-slate-700 flex items-center gap-2">
-                                <i class="fa-solid fa-chart-line text-orange-500"></i> 近7天销售趋势
-                            </span>
-                            <div class="text-xs bg-slate-100 p-1 rounded-md flex">
-                                <span class="bg-white px-2 py-1 rounded shadow-sm">销售额</span>
-                                <span class="px-2 py-1 text-slate-400">订单量</span>
-                            </div>
-                        </div>
-                        <div class="flex-1 flex items-end gap-3 h-40 mt-auto pt-4">
-                            <!-- 模拟柱状图 -->
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 30%"></div></div>
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 50%"></div></div>
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 40%"></div></div>
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 70%"></div></div>
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 60%"></div></div>
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 90%"></div></div>
-                            <div class="flex-1 h-full bar-chart-item"><div class="bar-chart-fill" style="height: 85%"></div></div>
-                        </div>
-                        <div class="flex justify-between text-[10px] text-slate-400 mt-2">
-                            <span>10-05</span><span>10-06</span><span>10-07</span><span>10-08</span><span>10-09</span><span>10-10</span><span>今日</span>
-                        </div>
-                    </div>
+        // 章节标题组件
+        const SectionHeader = ({ title, subtitle, desc }) => (
+            <div className="mb-16 fade-in-up">
+                <p className="text-brand-500 font-bold tracking-widest text-sm mb-2 uppercase">{subtitle}</p>
+                <h2 className="text-4xl md:text-5xl font-bold text-dark mb-4">{title}</h2>
+                {desc && <p className="text-gray-500 text-lg max-w-3xl leading-relaxed">{desc}</p>}
+            </div>
+        );
 
-                    <!-- 便捷入口 -->
-                    <div class="glass-card p-6">
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="font-bold text-slate-700 flex items-center gap-2">
-                                <i class="fa-solid fa-compass text-orange-500"></i> 便捷入口
-                            </span>
-                            <span class="text-xs text-slate-400 cursor-pointer hover:text-orange-500"><i class="fa-solid fa-pen-to-square"></i> 自定义</span>
-                        </div>
-                        <div class="grid grid-cols-4 gap-y-6 gap-x-2 text-center">
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-box text-lg"></i>
+        const App = () => {
+            useScrollAnimation();
+
+            return (
+                <div className="bg-surface overflow-hidden">
+                    <ProgressNav />
+
+                    {/* ==================== 01 HERO 封面 ==================== */}
+                    <section className="relative min-h-screen flex items-center pt-20 pb-16 px-6 lg:px-24">
+                        <div className="absolute top-0 right-0 w-[50vw] h-screen bg-gradient-to-bl from-brand-50 to-transparent -z-10"></div>
+                        <div className="absolute bottom-20 left-10 w-64 h-64 bg-blue-50 rounded-full blur-3xl -z-10"></div>
+
+                        <div className="max-w-7xl mx-auto w-full grid lg:grid-cols-12 gap-12 items-center">
+                            <div className="lg:col-span-5 fade-in-up z-10">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-gray-200 shadow-sm mb-6">
+                                    <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                                    <span className="text-xs font-semibold text-gray-600">Enterprise Resource Planning UI/UX</span>
                                 </div>
-                                <div class="text-xs text-slate-600">商品管理</div>
-                            </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-file-invoice text-lg"></i>
+                                <h1 className="text-6xl lg:text-7xl font-bold text-dark leading-[1.1] mb-6">
+                                    集互通 2.0 <br/>
+                                    <span className="text-brand-500">重塑B端能效</span>
+                                </h1>
+                                <p className="text-gray-500 text-lg leading-relaxed mb-10">
+                                    摒弃传统B端系统堆砌功能的思维，以“角色场景、认知降负、链路闭环”为核心策略，将割裂的电商ERP重构为高效的智能工作台，为决策层赋能，为执行层减负。
+                                </p>
+                                
+                                <div className="grid grid-cols-3 gap-6 pt-6 border-t border-gray-200">
+                                    <div>
+                                        <p className="text-sm text-gray-400 mb-1">设计侧重点</p>
+                                        <p className="font-bold text-dark">效率与降噪</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-400 mb-1">覆盖终端</p>
+                                        <p className="font-bold text-dark">Web 端</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-400 mb-1">核心角色</p>
+                                        <p className="font-bold text-dark">决策者/执行者</p>
+                                    </div>
                                 </div>
-                                <div class="text-xs text-slate-600">订单查询</div>
                             </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-user-gear text-lg"></i>
-                                </div>
-                                <div class="text-xs text-slate-600">客户查询</div>
-                            </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-plus text-lg"></i>
-                                </div>
-                                <div class="text-xs text-slate-600">发布商品</div>
-                            </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-magnifying-glass-chart text-lg"></i>
-                                </div>
-                                <div class="text-xs text-slate-600">库存查询</div>
-                            </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-truck text-lg"></i>
-                                </div>
-                                <div class="text-xs text-slate-600">物流跟踪</div>
-                            </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-orange-50 border border-orange-100 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
-                                    <i class="fa-solid fa-hand-holding-dollar text-lg"></i>
-                                </div>
-                                <div class="text-xs text-slate-600">财务结算</div>
-                            </div>
-                            <div class="space-y-2 cursor-pointer group">
-                                <div class="w-12 h-12 mx-auto bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-slate-200 transition-all shadow-sm">
-                                    <i class="fa-solid fa-ellipsis text-lg"></i>
-                                </div>
-                                <div class="text-xs text-slate-500">更多应用</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- 右侧 -->
-            <div class="col-span-3 space-y-6">
-                <!-- 店铺信息 -->
-                <div class="glass-card p-6 bg-white/60">
-                    <div class="flex items-start gap-4 mb-5">
-                        <div class="relative">
-                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-100 to-orange-50 border-2 border-white shadow-md overflow-hidden p-1">
-                                <img src="https://api.dicebear.com/7.x/shapes/svg?seed=Felix&backgroundColor=FF9500" alt="logo" class="w-full h-full rounded-xl object-cover">
-                            </div>
-                            <div class="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-white"></div>
-                        </div>
-                        <div class="pt-1">
-                            <div class="font-bold text-slate-800 text-base flex items-center gap-1">弈芙的小店 <i class="fa-solid fa-circle-check text-blue-500 text-[10px]"></i></div>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-[10px] px-2 py-0.5 rounded shadow-sm">金牌商家</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-slate-50/50 rounded-xl p-3 mb-4 border border-slate-100">
-                        <div class="flex justify-between text-xs text-slate-600 font-medium">
-                            <div class="text-center"><div class="text-[10px] text-slate-400 mb-1">描述相符</div><span class="text-orange-500">4.8 <i class="fa-solid fa-arrow-up text-[8px]"></i></span></div>
-                            <div class="text-center border-x border-slate-200 px-4"><div class="text-[10px] text-slate-400 mb-1">服务态度</div><span class="text-orange-500">4.8 <i class="fa-solid fa-arrow-up text-[8px]"></i></span></div>
-                            <div class="text-center"><div class="text-[10px] text-slate-400 mb-1">物流服务</div><span class="text-orange-500">4.6 <i class="fa-solid fa-minus text-[8px] text-slate-300"></i></span></div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-shield-halved text-slate-300"></i> 店铺保证金</span>
-                            <span class="font-bold text-slate-700">15,400 <span class="font-normal text-[10px] text-slate-400">元</span></span>
-                        </div>
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-ranking-star text-slate-300"></i> 店铺等级</span>
-                            <div class="flex gap-1 text-orange-400 text-xs drop-shadow-sm"><i class="fa-solid fa-crown"></i><i class="fa-solid fa-crown"></i><i class="fa-solid fa-crown"></i></div>
-                        </div>
-                    </div>
-                    
-                    <button class="w-full mt-5 border border-slate-200 text-slate-600 py-2 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
-                        进入店铺后台首页 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    </button>
-                </div>
-
-                <!-- 头条通知 -->
-                <div class="glass-card p-5">
-                    <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
-                        <span class="font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-bell text-orange-500"></i> 云雀头条</span>
-                        <span class="text-xs text-slate-400 hover:text-orange-500 cursor-pointer">更多 <i class="fa-solid fa-chevron-right text-[10px]"></i></span>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="flex gap-3 items-start group cursor-pointer">
-                            <span class="text-[10px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded border border-blue-100 whitespace-nowrap">系统</span>
-                            <div>
-                                <div class="text-sm text-slate-700 group-hover:text-orange-500 transition-colors line-clamp-1">2024年10月11号的更新日志已发布，包含多项功能优化</div>
-                                <div class="text-[10px] text-slate-400 mt-1">10分钟前</div>
-                            </div>
-                        </div>
-                        <div class="flex gap-3 items-start group cursor-pointer">
-                            <span class="text-[10px] bg-orange-50 text-orange-500 px-1.5 py-0.5 rounded border border-orange-100 whitespace-nowrap">消息</span>
-                            <div>
-                                <div class="text-sm text-slate-700 group-hover:text-orange-500 transition-colors line-clamp-1">您有一条新的店铺权益待领取，请及时处理</div>
-                                <div class="text-[10px] text-slate-400 mt-1">2小时前</div>
-                            </div>
-                        </div>
-                        <div class="flex gap-3 items-start group cursor-pointer">
-                            <span class="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">活动</span>
-                            <div>
-                                <div class="text-sm text-slate-700 group-hover:text-orange-500 transition-colors line-clamp-1">双11大促商家报名通道已正式开启，点击查看规则</div>
-                                <div class="text-[10px] text-slate-400 mt-1">昨天 14:30</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 客服助手 -->
-                <div class="glass-card p-5 bg-gradient-to-br from-white via-orange-50/30 to-orange-100/50 relative overflow-hidden">
-                    <div class="absolute -right-4 -bottom-4 text-6xl text-orange-200/50"><i class="fa-solid fa-headset"></i></div>
-                    <div class="flex items-center gap-3 mb-5 relative z-10">
-                        <div class="w-10 h-10 rounded-full bg-white shadow-sm border border-orange-100 p-0.5">
-                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jane&style=circle" alt="CS Avatar" class="w-full h-full">
-                        </div>
-                        <div>
-                            <p class="font-bold text-sm text-slate-700">您的专属客服 - 小雅</p>
-                            <p class="text-[10px] text-slate-500 mt-0.5">在线为您解答业务问题</p>
-                        </div>
-                    </div>
-                    <button class="relative z-10 w-full bg-white border border-orange-200 text-orange-500 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors shadow-sm">
-                        <i class="fa-regular fa-comment-dots"></i> 立即沟通
-                    </button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 分隔线 -->
-    <div class="section-divider">
-        <div class="w-40 h-[1px] bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-        <span class="mx-6 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-300"></span> PAGE 02 : 客户管理 <span class="w-2 h-2 rounded-full bg-slate-300"></span></span>
-        <div class="w-40 h-[1px] bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-    </div>
-
-    <!-- 第二部分：客户管理列表 -->
-    <section class="max-w-7xl mx-auto glass-card overflow-hidden shadow-lg border border-white">
-        <div class="flex h-[850px]">
-            <!-- 侧边二级导航 -->
-            <div class="w-56 border-r border-slate-100 py-6 bg-slate-50/50 flex flex-col">
-                <div class="px-6 mb-8">
-                    <button class="w-full bg-white border border-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium hover:border-orange-300 hover:text-orange-500 transition-colors shadow-sm flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-plus text-orange-500"></i> 新建客户集
-                    </button>
-                </div>
-                
-                <div class="flex-1 overflow-y-auto space-y-6">
-                    <div>
-                        <div class="text-xs font-bold text-slate-400 mb-2 px-6 flex items-center justify-between">
-                            <span>客户管理</span> <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                        </div>
-                        <div class="space-y-1 px-3">
-                            <div class="sidebar-active px-3 py-2.5 text-sm rounded-lg cursor-pointer flex items-center gap-3">
-                                <i class="fa-solid fa-users w-4 text-center"></i> 全部客户
-                            </div>
-                            <div class="px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-white transition-all text-slate-600 flex items-center gap-3">
-                                <i class="fa-solid fa-layer-group w-4 text-center text-slate-400"></i> 客户分层看板
-                            </div>
-                            <div class="px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-white transition-all text-slate-600 flex items-center gap-3">
-                                <i class="fa-solid fa-tags w-4 text-center text-slate-400"></i> 标签体系管理
-                            </div>
-                            <div class="px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-white transition-all text-slate-600 flex items-center gap-3">
-                                <i class="fa-solid fa-star text-orange-400 w-4 text-center"></i> 星标重要客户
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <div class="text-xs font-bold text-slate-400 mb-2 px-6 flex items-center justify-between">
-                            <span>智能分析</span> <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                        </div>
-                        <div class="space-y-1 px-3">
-                            <div class="px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-white transition-all text-slate-600 flex items-center gap-3">
-                                <i class="fa-solid fa-chart-pie w-4 text-center text-slate-400"></i> 人群画像分析
-                            </div>
-                            <div class="px-3 py-2.5 text-sm rounded-lg cursor-pointer hover:bg-white transition-all text-slate-600 flex items-center gap-3 flex justify-between">
-                                <div class="flex items-center gap-3"><i class="fa-solid fa-bell-slash w-4 text-center text-red-400"></i> 流失预警分析</div>
-                                <span class="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">新</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 右侧主体内容 -->
-            <div class="flex-1 flex flex-col bg-white/50">
-                <!-- 列表顶部过滤区 -->
-                <div class="p-6 bg-white border-b border-slate-100">
-                    <div class="flex items-center justify-between border-b border-slate-100 mb-6">
-                        <div class="flex gap-6">
-                            <div class="pb-3 border-b-2 border-orange-500 text-orange-500 font-bold cursor-pointer">全部客户 (2,451)</div>
-                            <div class="pb-3 text-slate-500 cursor-pointer hover:text-slate-800 transition-colors">普通客户</div>
-                            <div class="pb-3 text-slate-500 cursor-pointer hover:text-slate-800 transition-colors">优质客户</div>
-                            <div class="pb-3 text-slate-500 cursor-pointer hover:text-slate-800 transition-colors">潜在客户</div>
-                        </div>
-                        <div class="pb-3 text-orange-500 text-sm cursor-pointer hover:underline flex items-center gap-1">
-                            <i class="fa-solid fa-sliders"></i> 高级筛选
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-4 gap-4 mb-5">
-                        <div class="relative">
-                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" placeholder="搜索客户名称/手机号/编码..." class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-1 ring-orange-400 focus:border-orange-400 outline-none transition-all">
-                        </div>
-                        <div class="relative">
-                            <select class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 ring-orange-400 focus:border-orange-400 outline-none appearance-none transition-all text-slate-600">
-                                <option>客户状态: 全部状态</option>
-                                <option>进行中</option>
-                                <option>已成交</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none"></i>
-                        </div>
-                        <div class="relative">
-                            <select class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 ring-orange-400 focus:border-orange-400 outline-none appearance-none transition-all text-slate-600">
-                                <option>最后跟进: 最近一周</option>
-                                <option>最近一个月</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none"></i>
-                        </div>
-                        <div class="relative">
-                            <select class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 ring-orange-400 focus:border-orange-400 outline-none appearance-none transition-all text-slate-600">
-                                <option>客户来源: 全部渠道</option>
-                                <option>微信小程序</option>
-                                <option>天猫旗舰店</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none"></i>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between">
-                        <div class="flex gap-3">
-                            <button class="orange-btn text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
-                                <i class="fa-solid fa-plus"></i> 添加客户
-                            </button>
-                            <button class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
-                                <i class="fa-solid fa-download"></i> 导出
-                            </button>
-                            <button class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors">批量编辑</button>
-                        </div>
-                        <div class="flex items-center gap-3 text-sm text-slate-500">
-                            <span class="flex items-center gap-1">列表视图 <i class="fa-regular fa-circle-question text-slate-400"></i></span>
-                            <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-                                <button class="bg-white px-3 py-1 rounded shadow-sm text-orange-500 font-medium"><i class="fa-solid fa-list"></i></button>
-                                <button class="px-3 py-1 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-border-all"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 列表数据 -->
-                <div class="flex-1 overflow-auto">
-                    <table class="w-full text-sm text-left whitespace-nowrap">
-                        <thead class="text-slate-500 bg-slate-50/80 sticky top-0 z-10 border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-6 font-medium w-10"><input type="checkbox" class="accent-orange-500 w-4 h-4 rounded border-slate-300"></th>
-                                <th class="py-3 px-4 font-medium">客户信息</th>
-                                <th class="py-3 px-4 font-medium">客户编码</th>
-                                <th class="py-3 px-4 font-medium">客户分层标签</th>
-                                <th class="py-3 px-4 font-medium">消费总额</th>
-                                <th class="py-3 px-4 font-medium cursor-pointer hover:text-slate-800">最新跟进时间 <i class="fa-solid fa-arrow-down-long text-[10px] ml-1"></i></th>
-                                <th class="py-3 px-4 font-medium">状态</th>
-                                <th class="py-3 px-6 font-medium text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            <!-- Row 1 -->
-                            <tr class="hover:bg-orange-50/30 transition-colors group">
-                                <td class="py-4 px-6"><input type="checkbox" class="accent-orange-500 w-4 h-4 rounded border-slate-300"></td>
-                                <td class="py-4 px-4">
-                                    <div class="flex items-center gap-3">
-                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Annie" alt="Avatar" class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200">
+                            <div className="lg:col-span-7 relative fade-in-up delay-200">
+                                {/* 模拟多层叠放的视觉效果 */}
+                                <div className="relative w-full aspect-[4/3] perspective-1000">
+                                    <img src="1.jpg" alt="首页" className="absolute top-0 right-0 w-[80%] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-white/50 z-10 transition-transform duration-500 hover:-translate-y-2 hover:rotate-1" />
+                                    <img src="03-当前会话.png" alt="客服" className="absolute bottom-[5%] left-0 w-[60%] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/50 z-20 transition-transform duration-500 hover:-translate-y-2 hover:-rotate-1" />
+                                    <div className="absolute top-[20%] left-[-5%] bg-white/90 backdrop-blur p-4 rounded-xl shadow-xl z-30 border border-gray-100 flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500"><i className="ph-fill ph-trend-up text-xl"></i></div>
                                         <div>
-                                            <div class="font-bold text-slate-800">赵玉凤 <i class="fa-brands fa-weixin text-green-500 text-xs ml-1"></i></div>
-                                            <div class="text-[11px] text-slate-400">138****4452</div>
+                                            <p className="text-xs text-gray-400">操作耗时降低</p>
+                                            <p className="text-xl font-bold text-dark">40%</p>
                                         </div>
                                     </div>
-                                </td>
-                                <td class="py-4 px-4 text-slate-500 font-mono text-xs">C17724869</td>
-                                <td class="py-4 px-4">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-orange-50 text-orange-600 border border-orange-100">
-                                        <i class="fa-solid fa-fire text-[10px] mr-1"></i> 待跟进意向大客户
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4 text-slate-700">¥ 12,450.00</td>
-                                <td class="py-4 px-4 text-slate-500 text-xs">2024-10-18 14:30</td>
-                                <td class="py-4 px-4">
-                                    <span class="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-2 py-1 rounded-full text-xs w-max">
-                                        <span class="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></span> 跟进中
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right">
-                                    <div class="flex justify-end gap-3 text-slate-400">
-                                        <button class="text-orange-500 hover:text-orange-600 font-medium">写跟进</button>
-                                        <button class="hover:text-slate-600">详情</button>
-                                        <button class="hover:text-slate-600"><i class="fa-solid fa-ellipsis"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <!-- Row 2 -->
-                            <tr class="hover:bg-orange-50/30 transition-colors group">
-                                <td class="py-4 px-6"><input type="checkbox" class="accent-orange-500 w-4 h-4 rounded border-slate-300"></td>
-                                <td class="py-4 px-4">
-                                    <div class="flex items-center gap-3">
-                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mia" alt="Avatar" class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200">
-                                        <div>
-                                            <div class="font-bold text-slate-800">李书萍</div>
-                                            <div class="text-[11px] text-slate-400">159****8890</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-4 px-4 text-slate-500 font-mono text-xs">C3654880</td>
-                                <td class="py-4 px-4">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                                        <i class="fa-regular fa-gem text-[10px] mr-1"></i> 高频下单优质客户
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4 text-slate-700">¥ 45,800.00</td>
-                                <td class="py-4 px-4 text-slate-500 text-xs">2024-10-15 09:15</td>
-                                <td class="py-4 px-4">
-                                    <span class="flex items-center gap-1.5 text-green-600 bg-green-50 px-2 py-1 rounded-full text-xs w-max">
-                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> 已成交
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right">
-                                    <div class="flex justify-end gap-3 text-slate-400">
-                                        <button class="text-orange-500 hover:text-orange-600 font-medium">写跟进</button>
-                                        <button class="hover:text-slate-600">详情</button>
-                                        <button class="hover:text-slate-600"><i class="fa-solid fa-ellipsis"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <!-- Row 3 -->
-                            <tr class="hover:bg-orange-50/30 transition-colors group">
-                                <td class="py-4 px-6"><input type="checkbox" class="accent-orange-500 w-4 h-4 rounded border-slate-300"></td>
-                                <td class="py-4 px-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold border border-purple-200">吴</div>
-                                        <div>
-                                            <div class="font-bold text-slate-800">吴萱萱 <i class="fa-brands fa-alipay text-blue-500 text-xs ml-1"></i></div>
-                                            <div class="text-[11px] text-slate-400">186****9756</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-4 px-4 text-slate-500 font-mono text-xs">C84519756</td>
-                                <td class="py-4 px-4">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                        <i class="fa-solid fa-headphones text-[10px] mr-1"></i> 售后咨询多/易纠结
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4 text-slate-700">¥ 860.00</td>
-                                <td class="py-4 px-4 text-slate-500 text-xs">2024-10-10 16:45</td>
-                                <td class="py-4 px-4">
-                                    <span class="flex items-center gap-1.5 text-slate-500 bg-slate-100 px-2 py-1 rounded-full text-xs w-max">
-                                        <span class="w-1.5 h-1.5 bg-slate-400 rounded-full"></span> 暂无意向
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right">
-                                    <div class="flex justify-end gap-3 text-slate-400">
-                                        <button class="text-orange-500 hover:text-orange-600 font-medium">写跟进</button>
-                                        <button class="hover:text-slate-600">详情</button>
-                                        <button class="hover:text-slate-600"><i class="fa-solid fa-ellipsis"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <!-- Row 4 -->
-                            <tr class="hover:bg-orange-50/30 transition-colors group">
-                                <td class="py-4 px-6"><input type="checkbox" class="accent-orange-500 w-4 h-4 rounded border-slate-300"></td>
-                                <td class="py-4 px-4">
-                                    <div class="flex items-center gap-3">
-                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jack" alt="Avatar" class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200">
-                                        <div>
-                                            <div class="font-bold text-slate-800">王建国</div>
-                                            <div class="text-[11px] text-slate-400">133****2211</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-4 px-4 text-slate-500 font-mono text-xs">C9921834</td>
-                                <td class="py-4 px-4">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-green-50 text-green-600 border border-green-100">
-                                        <i class="fa-solid fa-seedling text-[10px] mr-1"></i> 新注册潜在客户
-                                    </span>
-                                </td>
-                                <td class="py-4 px-4 text-slate-700">¥ 0.00</td>
-                                <td class="py-4 px-4 text-slate-500 text-xs">2024-10-18 10:05</td>
-                                <td class="py-4 px-4">
-                                    <span class="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-2 py-1 rounded-full text-xs w-max">
-                                        <span class="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></span> 跟进中
-                                    </span>
-                                </td>
-                                <td class="py-4 px-6 text-right">
-                                    <div class="flex justify-end gap-3 text-slate-400">
-                                        <button class="text-orange-500 hover:text-orange-600 font-medium">写跟进</button>
-                                        <button class="hover:text-slate-600">详情</button>
-                                        <button class="hover:text-slate-600"><i class="fa-solid fa-ellipsis"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- 分页 -->
-                <div class="px-6 py-4 border-t border-slate-200 flex justify-between items-center bg-white">
-                    <div class="text-sm text-slate-500 flex items-center gap-6">
-                        <label class="flex items-center gap-2 cursor-pointer hover:text-slate-800"><input type="checkbox" class="accent-orange-500 w-4 h-4 rounded border-slate-300"> 全选本页</label>
-                        <span class="text-slate-300">|</span>
-                        <span>已选 <span class="text-orange-500 font-bold mx-1">0</span> 项</span>
-                    </div>
-                    <div class="flex items-center gap-3 text-sm">
-                        <span class="text-slate-500 mr-2">共 2,451 条记录</span>
-                        <select class="border border-slate-200 rounded px-2 py-1 text-slate-600 outline-none focus:border-orange-400">
-                            <option>10 条/页</option>
-                            <option>20 条/页</option>
-                            <option>50 条/页</option>
-                        </select>
-                        <div class="flex items-center gap-1 ml-4">
-                            <button class="w-8 h-8 rounded-md border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors disabled:opacity-50" disabled><i class="fa-solid fa-chevron-left"></i></button>
-                            <button class="w-8 h-8 rounded-md border-none bg-orange-500 text-white flex items-center justify-center shadow-md font-medium">1</button>
-                            <button class="w-8 h-8 rounded-md border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:text-orange-500 transition-colors">2</button>
-                            <button class="w-8 h-8 rounded-md border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:text-orange-500 transition-colors">3</button>
-                            <span class="text-slate-400 px-1">...</span>
-                            <button class="w-8 h-8 rounded-md border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:text-orange-500 transition-colors">246</button>
-                            <button class="w-8 h-8 rounded-md border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-chevron-right"></i></button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 分隔线 -->
-    <div class="section-divider">
-        <div class="w-40 h-[1px] bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-        <span class="mx-6 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-300"></span> PAGE 03 : 商品发布 <span class="w-2 h-2 rounded-full bg-slate-300"></span></span>
-        <div class="w-40 h-[1px] bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-    </div>
-
-    <!-- 第三部分：发布商品流程 -->
-    <section class="max-w-5xl mx-auto glass-card p-10 bg-white/90 shadow-xl border border-white">
-        <!-- 进度条 -->
-        <div class="flex justify-center items-center mb-12 relative px-20">
-            <div class="absolute top-1/2 left-[15%] right-[15%] h-[2px] bg-slate-100 -translate-y-1/2 z-0"></div>
-            <!-- 已完成的连接线 -->
-            <div class="absolute top-1/2 left-[15%] w-[35%] h-[2px] bg-orange-500 -translate-y-1/2 z-0"></div>
-            
-            <div class="flex flex-col items-center gap-3 z-10 bg-white/0 px-4 w-1/3">
-                <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center font-bold border-2 border-orange-500 shadow-sm relative">
-                    <i class="fa-solid fa-check"></i>
-                </div>
-                <div class="text-sm font-bold text-slate-800">1. 选择商品分类</div>
-            </div>
-            
-            <div class="flex flex-col items-center gap-3 z-10 bg-white/0 px-4 w-1/3">
-                <div class="w-10 h-10 rounded-full orange-btn text-white flex items-center justify-center font-bold ring-4 ring-orange-100">2</div>
-                <div class="text-sm font-bold text-orange-500">2. 填写商品基本信息</div>
-            </div>
-            
-            <div class="flex flex-col items-center gap-3 z-10 bg-white/0 px-4 w-1/3">
-                <div class="w-10 h-10 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center font-bold border-2 border-slate-200">3</div>
-                <div class="text-sm font-medium text-slate-400">3. 发布成功</div>
-            </div>
-        </div>
-
-        <!-- 表单区 -->
-        <div class="max-w-4xl mx-auto space-y-10">
-            
-            <!-- 模块 1：基本信息 -->
-            <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-8">
-                <div class="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-1 h-4 bg-orange-500 rounded-full"></span> 基本信息
-                </div>
-                
-                <div class="space-y-6">
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>商品分类:</div>
-                        <div class="col-span-10 flex items-center gap-3 text-sm">
-                            <span class="bg-white border border-slate-200 px-4 py-2 rounded-lg text-slate-700">女装/女士精品 <i class="fa-solid fa-angle-right text-slate-400 mx-1"></i> 连衣裙</span>
-                            <button class="text-orange-500 hover:text-orange-600 hover:underline">修改分类</button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>商品标题:</div>
-                        <div class="col-span-10 relative">
-                            <input type="text" placeholder="请输入商品标题，如品牌名+商品特色+类目，限60字符" class="form-input pr-16">
-                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">0/60</span>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-12 items-start gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium pt-3"><span class="text-red-500 mr-1">*</span>商品主图:</div>
-                        <div class="col-span-10">
-                            <div class="flex gap-4 mb-3">
-                                <!-- 主图1 (已上传) -->
-                                <div class="w-24 h-24 rounded-xl border border-slate-200 relative group overflow-hidden bg-slate-100">
-                                    <img src="https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=200&h=200&fit=crop" class="w-full h-full object-cover">
-                                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                        <i class="fa-solid fa-eye text-white cursor-pointer hover:text-orange-300"></i>
-                                        <i class="fa-solid fa-trash text-white cursor-pointer hover:text-red-400"></i>
-                                    </div>
-                                    <div class="absolute bottom-0 left-0 w-full bg-orange-500 text-white text-[10px] text-center py-0.5">主图</div>
-                                </div>
-                                <!-- 上传按钮 -->
-                                <div class="w-24 h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:border-orange-400 hover:text-orange-500 hover:bg-orange-50/50 cursor-pointer transition-all bg-white">
-                                    <i class="fa-solid fa-camera text-xl mb-1"></i>
-                                    <span class="text-[10px] font-medium">上传图片</span>
                                 </div>
                             </div>
-                            <div class="text-[11px] text-slate-400">
-                                建议尺寸 800*800 像素，第一张为主图。支持拖拽调整顺序，最多 5 张。单张大小不超过 5MB。
+                        </div>
+                    </section>
+
+                    {/* ==================== 02 双钻设计模型 (全新重构) ==================== */}
+                    <section className="py-24 px-6 lg:px-24 bg-white relative">
+                        <div className="max-w-7xl mx-auto">
+                            <div className="text-center mb-16 fade-in-up">
+                                <h2 className="text-3xl md:text-4xl font-bold text-dark mb-4">全链路推导：基于“阿里五导家”的设计策略</h2>
+                                <p className="text-gray-500">从发现业务痛点到最终体验落地，确保每一个像素的改变都有其业务依据</p>
+                            </div>
+
+                            {/* 纯代码绘制的双钻模型 */}
+                            <div className="w-full overflow-x-auto pb-10 fade-in-up delay-100">
+                                <div className="min-w-[900px]">
+                                    
+                                    {/* 顶部标签 */}
+                                    <div className="flex justify-between px-[15%] text-sm font-bold text-gray-500 mb-8 relative z-10">
+                                        <div className="flex gap-16">
+                                            <span>发现问题 <br/><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">发散</span></span>
+                                            <span>确定问题 <br/><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">聚焦</span></span>
+                                        </div>
+                                        <div className="flex gap-16">
+                                            <span>设计输出 <br/><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">发散</span></span>
+                                            <span>设计交付 <br/><span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">聚焦</span></span>
+                                        </div>
+                                    </div>
+
+                                    {/* 核心图形区 */}
+                                    <div className="diamond-container mb-8">
+                                        <div className="diamond-line"></div>
+                                        
+                                        {/* 起点 */}
+                                        <div className="connector-dot" style={{ left: '10%' }}></div>
+                                        
+                                        {/* 左侧钻石：问题空间 */}
+                                        <div className="diamond absolute" style={{ left: '25%', marginLeft: '-120px' }}>
+                                            <div className="diamond-content">
+                                                <div className="text-primary-500 font-bold text-lg mb-1">解决方向</div>
+                                                <div className="text-xs text-gray-400 flex flex-col gap-1">
+                                                    <span>业务拆解 ——</span>
+                                                    <span>—— 用户调研</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 中心节点：确定目标 */}
+                                        <div className="diamond-center-node">
+                                            <div className="diamond-content text-white">
+                                                <div className="font-bold text-xl tracking-wider shadow-sm">确认目标</div>
+                                            </div>
+                                        </div>
+
+                                        {/* 右侧钻石：解决方案空间 */}
+                                        <div className="diamond absolute" style={{ right: '25%', marginRight: '-120px' }}>
+                                            <div className="diamond-content">
+                                                <div className="text-brand-500 font-bold text-lg mb-1">推动落地</div>
+                                                <div className="text-xs text-gray-400 flex flex-col gap-1">
+                                                    <span>交互设计 ——</span>
+                                                    <span>—— 视觉实现</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 终点 */}
+                                        <div className="connector-dot" style={{ right: '10%' }}></div>
+                                    </div>
+
+                                    {/* 底部详细阶段与产出物映射 (结合集互通项目) */}
+                                    <div className="grid grid-cols-5 gap-4 px-[5%] text-center relative z-10">
+                                        <div>
+                                            <h4 className="font-bold text-primary-600 mb-4 border-b border-gray-100 pb-2">01 定义问题</h4>
+                                            <ul className="text-sm text-gray-500 space-y-2">
+                                                <li>系统架构割裂</li>
+                                                <li>操作路径冗长</li>
+                                                <li>新手学习成本极高</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-primary-600 mb-4 border-b border-gray-100 pb-2">02 用户研究</h4>
+                                            <ul className="text-sm text-gray-500 space-y-2">
+                                                <li>客服频繁切屏录单</li>
+                                                <li>管理者报表维度单一</li>
+                                                <li>权限分配极易出错</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-brand-500 mb-4 border-b border-gray-100 pb-2">03 确认目标</h4>
+                                            <ul className="text-sm text-gray-500 space-y-2 font-medium">
+                                                <li className="text-dark">空间折叠聚合信息</li>
+                                                <li className="text-dark">降低认知域负荷</li>
+                                                <li className="text-dark">数据前置可视化</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-brand-500 mb-4 border-b border-gray-100 pb-2">04 方案确定</h4>
+                                            <ul className="text-sm text-gray-500 space-y-2">
+                                                <li>F型全局工作台</li>
+                                                <li>沉浸式侧边栏结构</li>
+                                                <li>分步式与矩阵表单</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-gray-700 mb-4 border-b border-gray-100 pb-2">05 产品落地</h4>
+                                            <ul className="text-sm text-gray-500 space-y-2">
+                                                <li>UI组件规范建立</li>
+                                                <li>高保真原型验证</li>
+                                                <li>前端样式走查与复盘</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
+                    </section>
 
-            <!-- 模块 2：销售与库存 -->
-            <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-8">
-                <div class="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-1 h-4 bg-orange-500 rounded-full"></span> 价格与库存
-                </div>
-                
-                <div class="space-y-6">
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>售卖方式:</div>
-                        <div class="col-span-10 flex gap-6">
-                            <label class="flex items-center gap-2 cursor-pointer text-sm">
-                                <input type="radio" name="sale_type" class="accent-orange-500 w-4 h-4" checked> 单规格
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer text-sm">
-                                <input type="radio" name="sale_type" class="accent-orange-500 w-4 h-4"> 多规格 (颜色/尺码等)
-                            </label>
-                        </div>
-                    </div>
+                    {/* ==================== 03 深度分析 1：数据消费与首页驾驶舱 ==================== */}
+                    <section className="py-24 px-6 lg:px-24 bg-surface">
+                        <div className="max-w-7xl mx-auto">
+                            <SectionHeader 
+                                subtitle="Insight 01: Dashboard & Reports" 
+                                title="数据消费降维：从“读表格”到“看趋势”" 
+                                desc="管理者在B端系统中最核心的诉求是掌握全局。传统ERP首页堆砌菜单，报表全是数据网格，导致管理者极易产生“数据盲区”。" 
+                            />
+                            
+                            <div className="grid lg:grid-cols-12 gap-12 items-start fade-in-up">
+                                {/* 左侧：深入剖析 */}
+                                <div className="lg:col-span-5 sticky top-24 space-y-8">
+                                    <div className="insight-card bg-white p-6 rounded-2xl">
+                                        <div className="w-10 h-10 bg-brand-50 rounded-lg flex items-center justify-center text-brand-500 mb-4"><i className="ph-fill ph-layout text-xl"></i></div>
+                                        <h3 className="text-xl font-bold text-dark mb-2">F型视觉流与核心前置</h3>
+                                        <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                            <span className="font-bold text-dark">痛点：</span>旧版首页被庞杂的二级菜单占据，找不到关键业务入口。<br/>
+                                            <span className="font-bold text-brand-500">策略：</span>打破系统层级，采用F型浏览动线。将最高频的“待办事项”(发货/退款)提取为大数字微件，直接点击穿透。将复杂的入口收敛至“便捷入口”区域。
+                                        </p>
+                                    </div>
 
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>商品售价:</div>
-                        <div class="col-span-4">
-                            <div class="flex">
-                                <span class="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-slate-200 bg-slate-100 text-slate-500 font-bold">¥</span>
-                                <input type="number" placeholder="0.00" class="form-input rounded-l-none border-l-0">
+                                    <div className="insight-card bg-white p-6 rounded-2xl delay-100">
+                                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500 mb-4"><i className="ph-fill ph-chart-donut text-xl"></i></div>
+                                        <h3 className="text-xl font-bold text-dark mb-2">目标度量：认知门槛的降低</h3>
+                                        <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                                            <span className="font-bold text-dark">痛点：</span>纯数字报表无法一眼看出业务是否健康。<br/>
+                                            <span className="font-bold text-brand-500">策略：</span>在报表页(图下)，设计“整体本月业绩完成度”双环图。将【业绩完成进度 45%】与【时间进度 96%】并列。管理者无需心算，通过图形面积对比即可瞬间判断：<span className="bg-red-50 text-red-600 px-1 rounded">严重落后于时间进度，需紧急干预</span>。这是数据可视化的核心价值。
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* 右侧：图文结合 */}
+                                <div className="lg:col-span-7 space-y-12">
+                                    <div className="relative group">
+                                        <div className="absolute -inset-2 bg-gradient-to-r from-brand-500 to-orange-300 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity blur-lg"></div>
+                                        <img src="1.jpg" alt="首页设计" className="relative w-full rounded-xl shadow-lg border border-gray-200" />
+                                        <div className="absolute -right-4 top-[30%] bg-white px-4 py-2 rounded shadow-xl border-l-4 border-brand-500 text-sm font-bold text-dark">
+                                            数字前置，任务驱动
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="relative group">
+                                        <div className="absolute -inset-2 bg-gradient-to-r from-blue-500 to-indigo-300 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity blur-lg"></div>
+                                        <img src="02-首页-我的报表1.png" alt="数据报表" className="relative w-full rounded-xl shadow-lg border border-gray-200" />
+                                        <div className="absolute -left-4 bottom-[20%] bg-white px-4 py-2 rounded shadow-xl border-l-4 border-blue-500 text-sm font-bold text-dark">
+                                            渐变面积图，强化数据边界
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium">划线原价:</div>
-                        <div class="col-span-4">
-                            <div class="flex">
-                                <span class="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-slate-200 bg-slate-100 text-slate-500 font-bold">¥</span>
-                                <input type="number" placeholder="0.00" class="form-input rounded-l-none border-l-0">
+                    </section>
+
+                    {/* ==================== 04 深度分析 2：客服上下文折叠 ==================== */}
+                    <section className="py-24 px-6 lg:px-24 bg-white border-y border-gray-100">
+                        <div className="max-w-7xl mx-auto">
+                            <SectionHeader 
+                                subtitle="Insight 02: Contextual Workspace" 
+                                title="物理空间的折叠：终结“页面横跳”" 
+                                desc="客服作为核心执行者，每天需处理数百个会话。传统流程：会话窗口 -> 复制用户ID -> 打开订单列表查询 -> 回复。这个过程切屏高达3-4次，极易产生操作疲劳和失误。" 
+                            />
+
+                            <div className="relative mb-16 fade-in-up">
+                                <img src="03-当前会话.png" alt="客服工作台" className="w-full rounded-2xl shadow-2xl border border-gray-200 block" />
+                                
+                                {/* 交互热点解析层 */}
+                                <div className="absolute top-[20%] left-[10%] w-[20%] h-[60%] border-2 border-dashed border-gray-400 rounded-lg bg-gray-900/5 hover:bg-brand-500/10 transition-colors group cursor-crosshair">
+                                    <div className="absolute -top-10 left-0 bg-dark text-white text-xs px-3 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">1. 全局调度列表：红点预警超时等待</div>
+                                </div>
+                                <div className="absolute top-[10%] left-[32%] w-[40%] h-[80%] border-2 border-brand-500 rounded-lg bg-brand-500/5 shadow-glow group cursor-crosshair">
+                                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs px-3 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">2. 沉浸式交互区：大留白降低阅读疲劳</div>
+                                </div>
+                                <div className="absolute top-[10%] right-[3%] w-[22%] h-[80%] border-2 border-blue-500 rounded-lg bg-blue-500/5 group cursor-crosshair">
+                                    <div className="absolute -top-10 right-0 bg-blue-600 text-white text-xs px-3 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">3. 情报折叠区：免跳出查看历史订单/画像</div>
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-3 gap-8 fade-in-up delay-100">
+                                <div>
+                                    <h4 className="text-xl font-bold mb-3 flex items-center gap-2"><span className="text-brand-500">#01</span> 情感预警设计</h4>
+                                    <p className="text-gray-500 text-sm leading-relaxed">左侧会话列表除了展示名称，最重要的是<span className="highlight-b">“排队状态与等待时长(红字标红)”</span>。这不是单纯的信息展示，而是给予客服情绪预期，辅助其进行优先级调度（先回复超时客户）。</p>
+                                </div>
+                                <div>
+                                    <h4 className="text-xl font-bold mb-3 flex items-center gap-2"><span className="text-brand-500">#02</span> 视觉降噪的主窗口</h4>
+                                    <p className="text-gray-500 text-sm leading-relaxed">中区的对话气泡去除了复杂的边框与阴影，采用扁平化色块（客服品牌橙色 vs 用户浅灰色）。在长文本阅读场景下，充足的内部留白（Padding）能显著减轻视觉压迫感。</p>
+                                </div>
+                                <div>
+                                    <h4 className="text-xl font-bold mb-3 flex items-center gap-2"><span className="text-brand-500">#03</span> 上下文即刻获取 (核心突破)</h4>
+                                    <p className="text-gray-500 text-sm leading-relaxed">右侧情报区是提升能效的<span className="highlight-b">胜负手</span>。将用户的CRM标签（VIP、高价值）和最近交易订单集成至当前页面。客服回复“尺码有点小”时，视线向右微移即可看到购买的具体商品和物流状态，实现“秒级响应”。</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>总库存:</div>
-                        <div class="col-span-4">
-                            <div class="flex">
-                                <input type="number" placeholder="0" class="form-input rounded-r-none border-r-0">
-                                <span class="inline-flex items-center px-4 rounded-r-lg border border-l-0 border-slate-200 bg-slate-100 text-slate-500 text-sm">件</span>
+                    {/* ==================== 05 深度分析 3：表单与权限逻辑降维 ==================== */}
+                    <section className="py-24 px-6 lg:px-24 bg-surface">
+                        <div className="max-w-7xl mx-auto">
+                            <SectionHeader 
+                                subtitle="Insight 03: Complex Forms & Matrices" 
+                                title="对抗密集恐惧：复杂表单的拆解与重构" 
+                                desc="B端产品最大的痛点往往隐藏在长表单和巨型矩阵配置中。如何让用户在录入信息时不感到绝望？核心法则：渐进式披露 (Progressive Disclosure)。" 
+                            />
+
+                            <div className="grid lg:grid-cols-2 gap-16">
+                                {/* 图3 - 商品发布表单 */}
+                                <div className="fade-in-up">
+                                    <div className="mb-6">
+                                        <h3 className="text-2xl font-bold text-dark mb-2">长表单的分步化 (Wizard)</h3>
+                                        <p className="text-gray-500 text-sm">面对包含近30个字段的商品发布页面，如果采用“一镜到底”，用户极易中途放弃或迷失定位。</p>
+                                    </div>
+                                    <img src="3.jpg" alt="商品发布" className="w-full rounded-xl shadow-lg border border-gray-200 mb-6" />
+                                    <div className="bg-white p-5 rounded-xl border-l-4 border-brand-500">
+                                        <h4 className="font-bold text-dark mb-1">设计解法</h4>
+                                        <ul className="text-sm text-gray-500 space-y-2 list-disc pl-4">
+                                            <li><span className="font-bold text-dark">横向步骤拆解：</span> 将任务拆分为“选择分类 -> 基本信息 -> 发布成功”三大步，建立强烈的心理预期。</li>
+                                            <li><span className="font-bold text-dark">视觉卡片分组：</span> 即便在“基本信息”中，也利用橙色标题块和微弱灰底，将“基本信息”、“价格库存”、“服务上架”在视觉上进行格式塔隔离。</li>
+                                            <li><span className="font-bold text-dark">控件优化：</span> 运用单选框(Radio)和胶囊按钮替代冗长的下拉菜单，减少点击次数。</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {/* 图5 - 账号权限 */}
+                                <div className="fade-in-up delay-200">
+                                    <div className="mb-6">
+                                        <h3 className="text-2xl font-bold text-dark mb-2">网格矩阵降维 (Matrix)</h3>
+                                        <p className="text-gray-500 text-sm">ERP权限分配通常是一个巨大的树状结构，展开后满屏复选框，管理员勾选时极易错漏。</p>
+                                    </div>
+                                    <img src="05-账号权限.png" alt="账号权限" className="w-full rounded-xl shadow-lg border border-gray-200 mb-6" />
+                                    <div className="bg-white p-5 rounded-xl border-l-4 border-blue-500">
+                                        <h4 className="font-bold text-dark mb-1">设计解法</h4>
+                                        <ul className="text-sm text-gray-500 space-y-2 list-disc pl-4">
+                                            <li><span className="font-bold text-dark">三层逻辑结构：</span> 顶部“管理范围”定义大盘 -> 中间Tabs切片(系统参数/角色/功能)切割模块 -> 底部网格化展示具体权限。</li>
+                                            <li><span className="font-bold text-dark">防错机制：</span> 强化的橙色勾选状态，提供清晰的视觉确认。</li>
+                                            <li><span className="font-bold text-dark">批量提效：</span> 右上角常驻“全选/反选/清空”高频动作条，针对新员工入职场景，配置时间从3分钟缩短至10秒。</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium">商品编码:</div>
-                        <div class="col-span-4">
-                            <input type="text" placeholder="选填，内部SKU编码" class="form-input">
-                        </div>
-                    </div>
-                </div>
-            </div>
+                    </section>
 
-            <!-- 模块 3：服务与上架 -->
-            <div class="bg-slate-50/50 border border-slate-100 rounded-2xl p-8">
-                <div class="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-                    <span class="w-1 h-4 bg-orange-500 rounded-full"></span> 服务与上架
-                </div>
-                
-                <div class="space-y-6">
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>运费模板:</div>
-                        <div class="col-span-10 flex items-center gap-3">
-                            <select class="form-input w-64 appearance-none relative bg-white">
-                                <option>全国包邮模板</option>
-                                <option>按重量计费 (默认)</option>
-                                <option>偏远地区加收邮费</option>
-                            </select>
-                            <button class="text-sm text-orange-500 hover:underline">新建模板</button>
-                        </div>
-                    </div>
+                    {/* ==================== 06 列表设计法则 ==================== */}
+                    <section className="py-24 px-6 lg:px-24 bg-dark text-white">
+                        <div className="max-w-7xl mx-auto">
+                             <div className="mb-16 fade-in-up">
+                                <p className="text-brand-400 font-bold tracking-widest text-sm mb-2 uppercase">Insight 04: Data Tables</p>
+                                <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">列表的行动导向：过滤与状态外显</h2>
+                            </div>
 
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium">导购标签:</div>
-                        <div class="col-span-10">
-                            <div class="flex flex-wrap gap-2 mb-2">
-                                <span class="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-md text-xs border border-orange-200 flex items-center gap-1 cursor-pointer">品牌直营 <i class="fa-solid fa-xmark text-[10px] text-orange-300 hover:text-orange-500"></i></span>
-                                <span class="bg-white text-slate-600 px-3 py-1.5 rounded-md text-xs border border-slate-200 flex items-center gap-1 cursor-pointer hover:border-orange-300">七天无理由退换</span>
-                                <span class="bg-white text-slate-600 px-3 py-1.5 rounded-md text-xs border border-slate-200 flex items-center gap-1 cursor-pointer hover:border-orange-300">极速发货</span>
-                                <button class="px-3 py-1.5 rounded-md border border-dashed border-slate-300 text-slate-400 hover:text-orange-500 hover:border-orange-400 text-xs transition-colors flex items-center gap-1">
-                                    <i class="fa-solid fa-plus"></i> 添加标签
-                                </button>
+                            <div className="grid lg:grid-cols-12 gap-12 items-center fade-in-up">
+                                <div className="lg:col-span-8">
+                                    <img src="2.jpg" alt="客户列表" className="w-full rounded-xl shadow-2xl border border-gray-700" />
+                                </div>
+                                <div className="lg:col-span-4 space-y-8">
+                                    <div>
+                                        <div className="w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold mb-3 border border-brand-500/30">1</div>
+                                        <h3 className="text-xl font-bold mb-2">高频筛选平铺与高级收起</h3>
+                                        <p className="text-gray-400 text-sm">将“全部、普通客户、优质客户”作为顶部快捷Tabs。仅将“创建时间、标签”等低频或复杂的组合查询放入下拉表单，避免表单区过大挤压数据可视区高度。</p>
+                                    </div>
+                                    <div>
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold mb-3 border border-blue-500/30">2</div>
+                                        <h3 className="text-xl font-bold mb-2">状态字段符号化</h3>
+                                        <p className="text-gray-400 text-sm">B端表格最忌讳全是黑白文字。设计中将“人群定义”用微弱色块（蓝底新客、红底流失）包裹，“跟进状态”前置红/绿提示圆点。利用大脑对色彩的识别速度远大于文字的原理，提升检视效率。</p>
+                                    </div>
+                                    <div>
+                                        <div className="w-8 h-8 rounded-full bg-gray-500/20 text-gray-300 flex items-center justify-center font-bold mb-3 border border-gray-500/30">3</div>
+                                        <h3 className="text-xl font-bold mb-2">操作按钮解构</h3>
+                                        <p className="text-gray-400 text-sm">彻底废弃表格行末“操作->下拉->编辑”的三级交互。直接将核心高频操作“跟进”、“编辑”以平铺文字按钮展示，减少了50%的无效鼠标点击。</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <div class="grid grid-cols-12 items-center gap-4">
-                        <div class="col-span-2 text-right text-sm text-slate-600 font-medium"><span class="text-red-500 mr-1">*</span>上架时间:</div>
-                        <div class="col-span-10 flex gap-6">
-                            <label class="flex items-center gap-2 cursor-pointer text-sm">
-                                <input type="radio" name="publish_time" class="accent-orange-500 w-4 h-4" checked> 立即上架
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer text-sm">
-                                <input type="radio" name="publish_time" class="accent-orange-500 w-4 h-4"> 定时上架
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer text-sm">
-                                <input type="radio" name="publish_time" class="accent-orange-500 w-4 h-4"> 放入仓库
-                            </label>
+                    {/* ==================== 07 结语与复盘 ==================== */}
+                    <section className="py-24 px-6 lg:px-24 bg-surface text-center">
+                        <div className="max-w-4xl mx-auto fade-in-up">
+                            <h2 className="text-3xl font-bold text-dark mb-6">价值复盘：好的设计，是用数据说话的</h2>
+                            <p className="text-gray-500 mb-12 text-lg">
+                                本次集互通的重构不仅是视觉层面的“换肤”，更是底层业务流的再造。我们通过定义问题、推导策略，最终将冰冷的功能转化为赋能人效的工具。
+                            </p>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="text-3xl font-bold text-brand-500 mb-1">↓ 35%</div>
+                                    <div className="text-sm text-gray-400">客服人均响应时间</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="text-3xl font-bold text-brand-500 mb-1">↑ 2.5倍</div>
+                                    <div className="text-sm text-gray-400">报表日均查看频次</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="text-3xl font-bold text-brand-500 mb-1">↓ 60%</div>
+                                    <div className="text-sm text-gray-400">新员工培训耗时</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="text-3xl font-bold text-dark mb-1">一致性</div>
+                                    <div className="text-sm text-gray-400">前端组件化落地提升</div>
+                                </div>
+                            </div>
+
+                            <div className="inline-flex items-center gap-2 text-brand-500 font-bold tracking-widest text-lg hover:text-brand-600 transition-colors">
+                                <i className="ph-fill ph-check-circle text-2xl"></i> END OF CASE STUDY
+                            </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
-            </div>
+            );
+        };
 
-            <!-- 操作按钮底栏 (悬浮效果) -->
-            <div class="pt-6 pb-2 flex justify-center gap-6 sticky bottom-0 bg-white/90 backdrop-blur border-t border-slate-100 py-4 -mx-10 px-10">
-                <button class="bg-white border border-slate-300 text-slate-600 px-10 py-3 rounded-xl font-medium hover:bg-slate-50 hover:text-orange-500 hover:border-orange-300 transition-all">取消</button>
-                <button class="bg-orange-50 border border-orange-200 text-orange-600 px-10 py-3 rounded-xl font-medium hover:bg-orange-100 transition-all">保存草稿</button>
-                <button class="orange-btn text-white px-16 py-3 rounded-xl font-bold shadow-lg text-lg">确认发布商品</button>
-            </div>
-        </div>
-    </section>
-
-    <!-- 页脚装饰 -->
-    <footer class="text-center py-16 text-slate-400 text-xs flex flex-col items-center gap-2">
-        <div class="flex gap-4">
-            <span class="hover:text-orange-400 cursor-pointer transition-colors">关于集互通</span>
-            <span class="hover:text-orange-400 cursor-pointer transition-colors">联系我们</span>
-            <span class="hover:text-orange-400 cursor-pointer transition-colors">帮助中心</span>
-        </div>
-        <p class="mt-2">© 2024 集互通 JI HUTONG. 高效协作，智慧经营. 版权所有</p>
-    </footer>
-
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
